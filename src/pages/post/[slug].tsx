@@ -10,9 +10,14 @@ import { RichText } from 'prismic-dom';
 import { ptBR } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
+import PreviewButton from '../../components/PreviewButton';
+import { Document } from '@prismicio/client/types/documents';
+import { useUtterances } from '../../hooks/useUterance';
 
 interface Post {
   first_publication_date: string | null;
+  last_publication_date: string | null;
   data: {
     title: string;
     banner: {
@@ -30,10 +35,26 @@ interface Post {
 
 interface PostProps {
   post: Post;
+  preview: boolean;
+  previousPost: {
+    title: any;
+    uid: string;
+  };
+  nextPost: {
+    title: any;
+    uid: string;
+  };
 }
 
-export default function Post({ post }: PostProps) {
+export default function Post({
+  post,
+  preview,
+  previousPost,
+  nextPost,
+}: PostProps) {
   const router = useRouter();
+  const commentNodeId = 'comments';
+  useUtterances(commentNodeId);
 
   if (router.isFallback) {
     return <span>Carregando...</span>;
@@ -48,6 +69,9 @@ export default function Post({ post }: PostProps) {
   );
 
   const timeReading = Math.ceil(postWords / 200);
+
+  const isEdited = post.first_publication_date !== post.last_publication_date;
+
   return (
     <>
       <Header />
@@ -71,6 +95,18 @@ export default function Post({ post }: PostProps) {
               {timeReading} min
             </time>
           </small>
+          {isEdited && (
+            <p className={styles.edit}>
+              * editado em{' '}
+              {format(new Date(post.last_publication_date), 'd MMM y', {
+                locale: ptBR,
+              })}
+              , às{' '}
+              {format(new Date(post.last_publication_date), 'HH:mm', {
+                locale: ptBR,
+              })}
+            </p>
+          )}
           {post.data.content.map(content => (
             <div className={styles.postContent} key={content.heading}>
               <h2>{content.heading}</h2>
@@ -81,6 +117,31 @@ export default function Post({ post }: PostProps) {
               ></article>
             </div>
           ))}
+          {preview && <PreviewButton>Sair do modo Preview</PreviewButton>}
+          <hr />
+          <footer>
+            <div>
+              {previousPost.title ? <p>{previousPost.title}</p> : <p></p>}
+              {nextPost.title ? <p>{nextPost.title}</p> : <p></p>}
+            </div>
+            <div>
+              {previousPost.uid ? (
+                <Link href={`${previousPost.uid}`}>
+                  <a>Post anterior</a>
+                </Link>
+              ) : (
+                <a></a>
+              )}
+              {nextPost.uid ? (
+                <Link href={`${nextPost.uid}`}>
+                  <a>Próximo post</a>
+                </Link>
+              ) : (
+                <a></a>
+              )}
+            </div>
+            <div id={commentNodeId} />
+          </footer>
         </div>
       </main>
     </>
@@ -93,22 +154,60 @@ export const getStaticPaths: GetStaticPaths = async () => {
     Prismic.Predicates.at('document.type', 'posts'),
     { pageSize: 1 }
   );
-  const paths = posts.results.map(p => ({ params: { slug: p.uid } }));
 
+  const paths = posts.results.map(p => ({ params: { slug: p.uid } }));
   return {
     paths,
     fallback: true,
   };
 };
-export const getStaticProps: GetStaticProps = async ({ params }) => {
+export const getStaticProps: GetStaticProps = async ({
+  params,
+  preview = false,
+  previewData,
+}) => {
   const { slug } = params;
 
   const prismic = getPrismicClient();
-  const response = await prismic.getByUID('posts', String(slug), {});
+  // const response = await prismic.getByUID('posts', String(slug), {
+  //   ref: previewData?.ref ?? null,
+  //   pageSize: 1,
+  // });
+
+  const postsResponse = await prismic.query(
+    [Prismic.predicates.at('document.type', 'posts')],
+    {
+      ref: previewData?.ref ?? null,
+    }
+  );
+
+  const response = postsResponse.results.find(p => p.uid === slug);
+
+  const previousPost = {
+    title:
+      postsResponse.results[
+        postsResponse.results.findIndex(p => p.uid === slug) - 1
+      ]?.data.title ?? null,
+    uid:
+      postsResponse.results[
+        postsResponse.results.findIndex(p => p.uid === slug) - 1
+      ]?.uid ?? null,
+  };
+  const nextPost = {
+    title:
+      postsResponse.results[
+        postsResponse?.results.findIndex(p => p.uid === slug) + 1
+      ]?.data.title ?? null,
+    uid:
+      postsResponse.results[
+        postsResponse?.results.findIndex(p => p.uid === slug) + 1
+      ]?.uid ?? null,
+  };
 
   const post = {
     uid: response.uid,
     first_publication_date: response.first_publication_date,
+    last_publication_date: response.last_publication_date,
     data: {
       title: response.data.title,
       subtitle: response.data.subtitle,
@@ -120,6 +219,6 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
     },
   };
   return {
-    props: { post },
+    props: { post, preview, previousPost, nextPost },
   };
 };

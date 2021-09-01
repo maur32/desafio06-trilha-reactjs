@@ -10,6 +10,7 @@
 .post {
   max-width: 720px;
   margin: 4rem 10rem 0;
+
   h1 {
     font-size: 3rem;
   }
@@ -30,6 +31,14 @@
       margin-right: 0.5rem;
     }
   }
+
+  .edit {
+    font-size: 1rem;
+    color: var(--info);
+    margin-top: 1.5rem;
+    font-style: italic;
+  }
+
   .postContent {
     margin-top: 3rem;
     line-height: 2rem;
@@ -50,6 +59,28 @@
       li {
         margin: 0.5 0;
       }
+    }
+  }
+  hr {
+    border: 1px solid var(--body);
+    opacity: 0.1;
+  }
+
+  footer {
+    * {
+      display: flex;
+      justify-content: space-between;
+    }
+    p {
+      margin-top: 3rem;
+      font-size: 1.125rem;
+    }
+    a {
+      margin: 1rem 0;
+      color: var(--highlight);
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
     }
   }
 }
